@@ -23,21 +23,33 @@ document.addEventListener("DOMContentLoaded", async function() {
             type: "LiveStream",
             target: document.querySelector("#interactive"),
             constraints: {
-                width: { min: 640, ideal: 1280 },  // 解像度を上げる
-                height: { min: 480, ideal: 720 },
-                aspectRatio: { min: 1, max: 2 },
+                // iPad向けに解像度を最適化
+                width: { min: 1280, ideal: 1920, max: 2560 },
+                height: { min: 720, ideal: 1080, max: 1440 },
+                aspectRatio: { ideal: 1.777778 },
                 facingMode: { exact: "environment" },
-                frameRate: { min: 15, ideal: 30 }  // フレームレートを安定化
+                // 画質関連の設定を追加
+                advanced: [
+                    {
+                        zoom: 2.0  // デジタルズーム設定（サポートされている場合）
+                    },
+                    {
+                        exposureMode: "manual"  // 露出の手動設定
+                    },
+                    {
+                        focusMode: "continuous"  // 継続的なオートフォーカス
+                    }
+                ]
             },
             area: {
-                top: "30%",    // スキャンエリアを広げる
-                right: "20%",
-                left: "20%",
-                bottom: "30%"
+                top: "25%",    // スキャンエリアを少し狭める
+                right: "25%",
+                left: "25%",
+                bottom: "25%"
             }
         },
         locate: true,
-        numOfWorkers: navigator.hardwareConcurrency || 4,  // ワーカー数を増やす
+        numOfWorkers: 2,
         decoder: {
             readers: [
                 "ean_reader",
@@ -48,14 +60,9 @@ document.addEventListener("DOMContentLoaded", async function() {
                 showPattern: true
             },
             multiple: false,
-            frequency: 10,     // スキャン頻度を上げる
-            minLength: 8,
-            maxLength: 13,
-            threshold: 0.15    // 感度を少し下げて誤検出を減らす
-        },
-        locator: {
-            patchSize: "medium",
-            halfSample: false  // 精度優先のため、フルサイズで処理
+            frequency: 5,          // フレームレートを下げて品質を向上
+            minConfidence: 0.15,   // 信頼度の閾値を調整
+            sharpness: 0.8        // シャープネス設定
         }
     };
 
@@ -75,8 +82,8 @@ document.addEventListener("DOMContentLoaded", async function() {
                 resolve();
             });
         });
-        
-        console.log("QuaggaJS initialization succeeded");
+
+        console.log("QuaggaJS initialized successfully");
         Quagga.start();
 
         // バーコード検出時の処理を改善
@@ -113,6 +120,11 @@ document.addEventListener("DOMContentLoaded", async function() {
                     drawingCtx.clearRect(0, 0, parseInt(drawingCanvas.width), parseInt(drawingCanvas.height));
                 }
 
+                // コントラスト強調
+                if (drawingCtx) {
+                    drawingCtx.filter = 'contrast(1.2) brightness(1.1)';
+                }
+
                 // バーコードが検出された場合
                 if (result.boxes) {
                     drawingCtx.strokeStyle = "#00F";
@@ -131,18 +143,45 @@ document.addEventListener("DOMContentLoaded", async function() {
                     statusEl.className = 'scan-status scan-active';
                 }
 
-                // 確定したバーコードエリアを赤色で表示
+                // バーコードエリアの処理を修正
                 if (result.box) {
+                    const box = result.box;
+                    const angle = Math.atan2(box.height, box.width) * (180/Math.PI);
                     drawingCtx.strokeStyle = "#F00";
                     drawingCtx.lineWidth = 2;
+                    
+                    // 歪み補正処理
+                    if (Math.abs(angle) > 5) {  // 5度以上の傾きがある場合
+                        drawingCtx.save();
+                        drawingCtx.translate(box.x + box.width/2, box.y + box.height/2);
+                        drawingCtx.rotate(angle * Math.PI/180);
+                        drawingCtx.translate(-(box.x + box.width/2), -(box.y + box.height/2));
+                    }
+
+                    // バーコードの枠を描画
                     drawingCtx.beginPath();
-                    drawingCtx.rect(
-                        result.box.x,
-                        result.box.y,
-                        result.box.width,
-                        result.box.height
-                    );
+                    drawingCtx.rect(box.x, box.y, box.width, box.height);
                     drawingCtx.stroke();
+
+                    if (Math.abs(angle) > 5) {
+                        drawingCtx.restore();  // 変換を元に戻す
+                    }
+
+                    // スキャン状態の表示
+                    const statusEl = document.getElementById('scan-status');
+                    if (Math.abs(angle) > 15) {
+                        statusEl.textContent = 'バーコードをまっすぐに持ってください';
+                        statusEl.className = 'scan-status scan-warning';
+                    } else if (box.width < 100) {
+                        statusEl.textContent = 'バーコードをもう少し近づけてください';
+                        statusEl.className = 'scan-status scan-warning';
+                    } else if (box.width > 300) {
+                        statusEl.textContent = 'バーコードを少し離してください';
+                        statusEl.className = 'scan-status scan-warning';
+                    } else {
+                        statusEl.textContent = 'バーコード検出中...';
+                        statusEl.className = 'scan-status scan-active';
+                    }
                 }
 
                 if (result.codeResult) {
@@ -175,8 +214,12 @@ document.addEventListener("DOMContentLoaded", async function() {
         });
 
     } catch (err) {
-        console.error("Quagga initialization failed:", err);
-        document.getElementById("result").textContent = 
-            `カメラの初期化に失敗しました: ${err.name} - ${err.message}`;
+        console.error("Error:", err);
+        document.getElementById("result").innerHTML = `
+            <div style="color: red; padding: 10px;">
+                カメラの初期化に失敗しました: ${err.name}<br>
+                <small>お使いのブラウザでカメラへのアクセスが許可されているか確認してください。</small>
+            </div>
+        `;
     }
 });

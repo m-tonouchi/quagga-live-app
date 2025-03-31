@@ -2,9 +2,9 @@
   "name": "quagga-live-app",
   "version": "1.0.0",
   "description": "Live barcode scanner using QuaggaJS",
-  "main": "src/index.html",
+  "main": "index.html",
   "scripts": {
-    "start": "npx http-server src -S -C cert.pem -K key.pem --cors -p 3000 -a 0.0.0.0"
+    "start": "npx http-server . -S -C cert.pem -K key.pem --cors -p 3000 -a 0.0.0.0"
   },
   "dependencies": {
     "http-server": "^14.1.1"
