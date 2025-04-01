@@ -1,16 +1,30 @@
 document.addEventListener("DOMContentLoaded", async function() {
-    // PCの場合のみQRコードを生成
-    if (window.innerWidth > 480) {
-        const currentUrl = window.location.href;
-        QRCode.toCanvas(document.getElementById('qrcode'), currentUrl, {
-            width: 180,
-            margin: 2,
-            color: {
-                dark: '#000000',
-                light: '#ffffff'
+    // QRコードの生成を遅延実行
+    setTimeout(() => {
+        try {
+            if (window.innerWidth > 480) {
+                const currentUrl = window.location.href;
+                const qrcodeElement = document.getElementById('qrcode');
+                
+                if (typeof QRCode === 'undefined') {
+                    console.error('QRCodeライブラリが読み込まれていません');
+                    return;
+                }
+
+                // QRコード生成メソッドを変更
+                new QRCode(qrcodeElement, {
+                    text: currentUrl,
+                    width: 180,
+                    height: 180,
+                    colorDark: '#000000',
+                    colorLight: '#ffffff',
+                    correctLevel: QRCode.CorrectLevel.H
+                });
             }
-        });
-    }
+        } catch (error) {
+            console.error('QRコード生成中にエラーが発生しました:', error);
+        }
+    }, 1000);  // 1秒待機に変更
 
     console.log("DOM loaded, initializing Quagga...");
 

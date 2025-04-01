@@ -14,25 +14,24 @@ body {
 .viewport {
     position: relative;
     width: 100%;
-    max-width: 100%;
+    max-width: 640px;
     height: auto;
-    aspect-ratio: 16/9;  /* アスペクト比を16:9に固定 */
+    aspect-ratio: 4/3;
     margin: 0 auto;
-    background-color: #000;
+    background: #000;
 }
 
-#interactive.viewport > video {
+.viewport canvas, video {
     width: 100%;
     height: 100%;
     object-fit: cover;
-    transform: scaleX(-1);  /* 必要に応じてミラー反転 */
-    filter: contrast(1.1) brightness(1.1);  /* コントラストと明るさを調整 */
 }
 
-#interactive.viewport > canvas {
+.viewport canvas.drawingBuffer {
     position: absolute;
     top: 0;
     left: 0;
+    z-index: 1;  /* キャンバスのz-indexを設定 */
 }
 
 /* スキャン結果のスタイル */
@@ -61,33 +60,26 @@ body {
 /* スキャン中のインジケーター */
 .scanning {
     position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    width: 200px;
-    height: 4px;
-    background-color: rgba(255, 255, 255, 0.5);
-    border-radius: 2px;
+    top: 30%;
+    right: 20%;
+    bottom: 30%;
+    left: 20%;
+    border: 2px solid rgba(0, 255, 0, 0.5);
+    box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.3);
+    z-index: 2;  /* スキャンエリアを最前面に */
+    pointer-events: none;
 }
 
-.scanning::before {
+.scanning::before,
+.scanning::after {
     content: '';
     position: absolute;
-    top: 0;
-    left: 0;
     width: 100%;
-    height: 100%;
-    background-color: #00ff00;
-    animation: scanning 2s linear infinite;
-}
-
-@keyframes scanning {
-    0% {
-        transform: translateX(-100%);
-    }
-    100% {
-        transform: translateX(100%);
-    }
+    height: 2px;
+    background: rgba(0, 255, 0, 0.7);
+    box-shadow: 0 0 2px rgba(0, 0, 0, 0.5);
+    animation: scan 2s infinite;
+    z-index: 3;  /* スキャンラインを最前面に */
 }
 
 /* スキャンステータスのスタイル */
