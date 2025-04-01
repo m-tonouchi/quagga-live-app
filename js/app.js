@@ -1,5 +1,92 @@
+// アプリケーション定数
+const APP_CONFIG = {
+    CAMERA: {
+        PADDING: 20,
+        STATES: {
+            RUNNING: 'running',
+            PAUSED: 'paused',
+            STOPPED: 'stopped'
+        },
+        CONSTRAINTS: {
+            width: { min: 640, ideal: 1280, max: 1920 },
+            height: { min: 480, ideal: 720, max: 1080 },
+            aspectRatio: { min: 1, max: 2 },
+            facingMode: "environment"
+        }
+    },
+    SCAN: {
+        MIN_CONFIDENCE: 0.05,
+        RETRY_COUNT: 3
+    }
+};
+
+// ユーティリティ関数
+const utils = {
+    handleError(error, message) {
+        console.error(message, error);
+        document.getElementById("result").innerHTML = `
+            <div style="background-color: #ffebee; padding: 10px; border-radius: 4px; margin-top: 10px;">
+                <p><strong>エラー:</strong> ${message}</p>
+                <p><small>${error.message}</small></p>
+            </div>
+        `;
+    },
+
+    drawDetectionResult(result, ctx, canvas, video) {
+        if (!ctx || !canvas || !video) return;
+    
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+    
+        // スケール計算
+        const scaleX = canvas.width / video.videoWidth;
+        const scaleY = canvas.height / video.videoHeight;
+    
+        // 候補の枠（黄色）
+        if (result.boxes) {
+            ctx.strokeStyle = 'rgba(255, 235, 59, 0.5)';
+            ctx.lineWidth = 2;
+            result.boxes.filter(box => box !== result.box)
+                       .forEach(box => this.drawBox(ctx, box, scaleX, scaleY));
+        }
+    
+        // 確定した枠（緑）
+        if (result.box) {
+            ctx.strokeStyle = 'rgba(76, 175, 80, 1)';
+            ctx.lineWidth = 2;
+            this.drawBox(ctx, result.box, scaleX, scaleY);
+        }
+    
+        // デバッグ用の枠（青）
+        if (result.pattern) {
+            ctx.strokeStyle = 'rgba(33, 150, 243, 0.7)';
+            ctx.lineWidth = 1;
+            this.drawPattern(ctx, result.pattern, scaleX, scaleY);
+        }
+    },
+    
+    drawBox(ctx, box, scaleX = 1, scaleY = 1) {
+        ctx.beginPath();
+        ctx.moveTo(box[0][0] * scaleX, box[0][1] * scaleY);
+        box.forEach(point => ctx.lineTo(point[0] * scaleX, point[1] * scaleY));
+        ctx.closePath();
+        ctx.stroke();
+    },
+    
+    drawPattern(ctx, pattern, scaleX = 1, scaleY = 1) {
+        if (!pattern) return;
+        ctx.beginPath();
+        pattern.forEach(point => {
+            ctx.moveTo((point.x - 2) * scaleX, (point.y - 2) * scaleY);
+            ctx.lineTo((point.x + 2) * scaleX, (point.y + 2) * scaleY);
+            ctx.moveTo((point.x + 2) * scaleX, (point.y - 2) * scaleY);
+            ctx.lineTo((point.x - 2) * scaleX, (point.y + 2) * scaleY);
+        });
+        ctx.stroke();
+    }    
+}
+
 document.addEventListener("DOMContentLoaded", async function() {
-    // QRコードの生成を遅延実行
+    /* QRコード生成を一時的に無効化
     setTimeout(() => {
         try {
             if (window.innerWidth > 480) {
@@ -11,7 +98,6 @@ document.addEventListener("DOMContentLoaded", async function() {
                     return;
                 }
 
-                // QRコード生成メソッドを変更
                 new QRCode(qrcodeElement, {
                     text: currentUrl,
                     width: 180,
@@ -24,7 +110,8 @@ document.addEventListener("DOMContentLoaded", async function() {
         } catch (error) {
             console.error('QRコード生成中にエラーが発生しました:', error);
         }
-    }, 1000);  // 1秒待機に変更
+    }, 1000);
+    */
 
     console.log("DOM loaded, initializing Quagga...");
 
@@ -44,27 +131,33 @@ document.addEventListener("DOMContentLoaded", async function() {
         return;
     }
 
+    // Quagga設定
+    const quaggaConfig = {
+        inputStream: {
+            name: "Live",
+            type: "LiveStream",
+            target: document.querySelector("#interactive"),
+            constraints: APP_CONFIG.CAMERA.CONSTRAINTS,
+            area: { top: "30%", right: "20%", left: "20%", bottom: "30%" }
+        },
+        locate: true,
+        numOfWorkers: 2,
+        decoder: {
+            readers: ["ean_reader", "ean_8_reader"],
+            debug: { showCanvas: true, showPatches: true },
+            multiple: false,
+            tryHarder: true,
+            frequency: 1
+        }
+    };
+
     const config = {
         inputStream: {
             name: "Live",
             type: "LiveStream",
             target: document.querySelector("#interactive"),
-            constraints: {
-                width: { min: 640, ideal: 1280, max: 1920 },  // 解像度を調整
-                height: { min: 480, ideal: 720, max: 1080 },
-                aspectRatio: { min: 1, max: 2 },
-                // カメラ設定を最適化
-                advanced: [
-                    {
-                        focusMode: "continuous",
-                        exposureMode: "continuous",
-                        whiteBalanceMode: "continuous",
-                        zoom: 1.5  // ズーム倍率を調整
-                    }
-                ]
-            },
+            constraints: APP_CONFIG.CAMERA.CONSTRAINTS,
             area: {
-                // スキャンエリアを広げる
                 top: "30%",
                 right: "20%",
                 left: "20%",
@@ -84,15 +177,14 @@ document.addEventListener("DOMContentLoaded", async function() {
                 showSkeleton: true
             },
             multiple: false,
-            // デコーダー設定を最適化
             tryHarder: true,
-            frequency: 1,            // 連続スキャンの間隔を短縮
-            minConfidence: 0.05,     // 信頼度の閾値をさらに下げる
-            halfSample: true,        // 処理速度と精度のバランスを取る
+            frequency: 1,
+            minConfidence: APP_CONFIG.SCAN.MIN_CONFIDENCE,
+            halfSample: true,
             debug: true,
-            patchSize: "large",      // パッチサイズを大きくして精度を向上
+            patchSize: "large",
             supplements: [],
-            decodeRetries: 3        // 再試行回数を設定
+            decodeRetries: APP_CONFIG.SCAN.RETRY_COUNT
         },
         locator: {
             patchSize: "medium",
@@ -114,7 +206,7 @@ document.addEventListener("DOMContentLoaded", async function() {
         await new Promise((resolve, reject) => {
             Quagga.init(config, function(err) {
                 if (err) {
-                    console.error("Quagga initialization error:", err);
+                    utils.handleError(err, "Quagga initialization error");
                     reject(err);
                     return;
                 }
@@ -146,7 +238,7 @@ document.addEventListener("DOMContentLoaded", async function() {
             // Quaggaを再初期化
             Quagga.init(config, function(err) {
                 if (err) {
-                    console.error("Quagga initialization error:", err);
+                    utils.handleError(err, "Quagga initialization error");
                     return;
                 }
                 Quagga.start();
@@ -161,188 +253,151 @@ document.addEventListener("DOMContentLoaded", async function() {
             return `${Math.min(100, Math.max(0, (result.codeResult.confidence * 100))).toFixed(1)}%`;
         }
 
-        // バーコード検出時の処理を改善
-        Quagga.onDetected(function(result) {
-            const confidenceValue = calculateConfidence(result);
-            const barcodeType = document.getElementById('barcodeType').value;
-            const detectedType = result.codeResult.format.toLowerCase();
-            
-            // 選択したタイプと一致するか確認
-            if (barcodeType !== 'all' && !detectedType.includes(barcodeType)) {
-                console.log('異なるタイプのバーコードを検出:', detectedType);
-                return;
-            }
+        // Quaggaの初期化状態を管理
+        let isInitialized = false;
 
-            document.getElementById("result").innerHTML = `
-                <div style="background-color: #e8f5e9; padding: 10px; border-radius: 4px; margin-top: 10px;">
-                    <p><strong>スキャン結果:</strong> ${result.codeResult.code}</p>
-                    <p><strong>スキャン時刻:</strong> ${new Date().toLocaleTimeString()}</p>
-                    <p><strong>バーコードタイプ:</strong> ${result.codeResult.format}</p>
-                    <p><strong>信頼度:</strong> ${confidenceValue}</p>
-                </div>
-            `;
-            
-            // ビープ音を鳴らす
-            const beep = new Audio("data:audio/wav;base64,UklGRj4AAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YRoAAAAaGhpic3R0dHR0dHNic2pqampqamtsbGxsbAAA");
-            beep.play().catch(e => console.log("音声再生エラー:", e));
+        // カメラとスキャンの状態管理を追加
+        let currentCameraState = APP_CONFIG.CAMERA.STATES.STOPPED;
 
-            // 処理性能のログ出力
-            console.log('スキャン性能:', {
-                処理時間: `${(performance.now() - startTime).toFixed(2)}ms`,
-                信頼度: confidenceValue,
-                コード: result.codeResult.code,
-                フォーマット: result.codeResult.format
+        // カメラ制御関数を改善
+        function controlCamera(state) {
+            return new Promise((resolve, reject) => {
+                try {
+                    switch (state) {
+                        case APP_CONFIG.CAMERA.STATES.RUNNING:
+                            if (currentCameraState !== APP_CONFIG.CAMERA.STATES.RUNNING) {
+                                Quagga.start();
+                                currentCameraState = APP_CONFIG.CAMERA.STATES.RUNNING;
+                                console.log('カメラ: 実行中');
+                            }
+                            break;
+                        case APP_CONFIG.CAMERA.STATES.PAUSED:
+                            if (currentCameraState === APP_CONFIG.CAMERA.STATES.RUNNING) {
+                                Quagga.pause();
+                                currentCameraState = APP_CONFIG.CAMERA.STATES.PAUSED;
+                                console.log('カメラ: 一時停止');
+                            }
+                            break;
+                        case APP_CONFIG.CAMERA.STATES.STOPPED:
+                            if (currentCameraState !== APP_CONFIG.CAMERA.STATES.STOPPED) {
+                                Quagga.stop();
+                                currentCameraState = APP_CONFIG.CAMERA.STATES.STOPPED;
+                                console.log('カメラ: 停止');
+                            }
+                            break;
+                    }
+                    resolve();
+                } catch (error) {
+                    utils.handleError(error, 'カメラ制御エラー');
+                    reject(error);
+                }
             });
+        }
+
+        // バーコード検出時の処理をシンプル化
+        Quagga.onDetected(function(result) {
+            if (!result.codeResult) return;
+
+            try {
+                const code = result.codeResult.code;
+                // バーコードタイプを取得
+                const barcodeType = document.getElementById('barcodeType').value;
+                const resultElement = document.getElementById("result");
+                
+                resultElement.innerHTML = `
+                    <div style="background-color: #e8f5e9; padding: 10px; border-radius: 4px; margin-top: 10px;">
+                        <p><strong>スキャン結果:</strong> ${code}</p>
+                        <p><small>タイプ: ${barcodeType}</small></p>
+                        <svg id="my_barcode"></svg>
+                        <div style="margin-top: 10px; text-align: center;">
+                            <button onclick="confirmScan(true)" class="confirm-btn success">OK</button>
+                            <button onclick="restartScan()" class="confirm-btn warning">再スキャン</button>
+                        </div>
+                    </div>
+                `;
+
+                // バーコードタイプに応じてフォーマットを設定
+                const format = barcodeType === 'ean' ? 'EAN13' :
+                              barcodeType === 'ean_8' ? 'EAN8' :
+                              barcodeType === 'code_128' ? 'CODE128' :
+                              barcodeType === 'code_39' ? 'CODE39' :
+                              barcodeType === 'upc' ? 'UPC' : 'EAN13';
+
+                // バーコードの描画（SVG要素を使用）
+                JsBarcode("#my_barcode", code, {
+                    format: format,
+                    width: 2,
+                    height: 100,
+                    displayValue: true,
+                    margin: 10,
+                    background: "#ffffff"
+                });
+
+            } catch (error) {
+                utils.handleError(error, 'バーコード表示中にエラーが発生');
+            }
         });
 
-        let scanAttempts = 0;
-        let successfulScans = 0;
-
-        // 処理状態の表示
+        // onProcessedイベントハンドラーを追加
         Quagga.onProcessed(function(result) {
-            scanAttempts++;
-            if (result && result.codeResult) {
-                successfulScans++;
-                const confidenceValue = calculateConfidence(result);
-                
-                // スキャン統計のログ出力
-                console.log('スキャン統計:', {
-                    試行回数: scanAttempts,
-                    成功回数: successfulScans,
-                    成功率: `${((successfulScans/scanAttempts) * 100).toFixed(1)}%`,
-                    信頼度: confidenceValue,
-                    平均処理時間: `${(performance.now()/scanAttempts).toFixed(2)}ms`,
-                    生データ: result.codeResult  // デバッグ用
-                });
-            }
-
+            if (!result || typeof result !== 'object') return;
             const drawingCtx = Quagga.canvas.ctx.overlay;
             const drawingCanvas = Quagga.canvas.dom.overlay;
+            const video = document.querySelector('video');
+        
+            utils.drawDetectionResult(result, drawingCtx, drawingCanvas, video);
 
-            // パフォーマンスモニタリングを追加
-            const startTime = performance.now();
-
-            if (result) {
-                // 前回の描画をクリア
-                if (drawingCtx) {
-                    drawingCtx.clearRect(0, 0, parseInt(drawingCanvas.width), parseInt(drawingCanvas.height));
-                }
-
-                if (drawingCtx) {
-                    // コントラストと明るさの調整を強化
-                    drawingCtx.filter = 'contrast(1.6) brightness(1.3) saturate(1.4)';
-                    
-                    // 画像処理の最適化
-                    drawingCtx.imageSmoothingEnabled = true;
-                    drawingCtx.imageSmoothingQuality = 'high';
-                    
-                    // シャープネス処理の追加
-                    drawingCtx.shadowBlur = 0;
-                    drawingCtx.globalCompositeOperation = 'source-over';
-                }
-
-                // バーコードが検出された場合
-                if (result.boxes) {
-                    drawingCtx.strokeStyle = "#00F";
-                    drawingCtx.lineWidth = 2;
-
-                    result.boxes.filter(function(box) {
-                        return box !== result.box;
-                    }).forEach(function(box) {
-                        drawingCtx.beginPath();
-                        drawingCtx.rect(box[0], box[1], box[2] - box[0], box[3] - box[1]);
-                        drawingCtx.stroke();
-                    });
-
-                    const statusEl = document.getElementById('scan-status');
-                    statusEl.textContent = 'バーコード検出中...';
-                    statusEl.className = 'scan-status scan-active';
-                }
-
-                // バーコードエリアの処理を修正
-                if (result.box) {
-                    const box = result.box;
-                    const angle = Math.atan2(box.height, box.width) * (180/Math.PI);
-                    drawingCtx.strokeStyle = "#F00";
-                    drawingCtx.lineWidth = 2;
-                    
-                    // 歪み補正処理
-                    if (Math.abs(angle) > 5) {  // 5度以上の傾きがある場合
-                        drawingCtx.save();
-                        drawingCtx.translate(box.x + box.width/2, box.y + box.height/2);
-                        drawingCtx.rotate(angle * Math.PI/180);
-                        drawingCtx.translate(-(box.x + box.width/2), -(box.y + box.height/2));
-                    }
-
-                    // バーコードの枠を描画
-                    drawingCtx.beginPath();
-                    drawingCtx.rect(box.x, box.y, box.width, box.height);
-                    drawingCtx.stroke();
-
-                    if (Math.abs(angle) > 5) {
-                        drawingCtx.restore();  // 変換を元に戻す
-                    }
-
-                    // スキャン状態の表示
-                    updateScanGuide(result);
-                }
-
-                if (result.codeResult) {
-                    const statusEl = document.getElementById('scan-status');
-                    statusEl.textContent = `検出成功: ${result.codeResult.code}`;
-                    statusEl.className = 'scan-status scan-success';
-
-                    const endTime = performance.now();
-                    console.log('スキャン性能:', {
-                        処理時間: `${(endTime - startTime).toFixed(2)}ms`,
-                        信頼度: `${(result.codeResult.confidence * 100).toFixed(1)}%`,
-                        コード: result.codeResult.code,
-                        フォーマット: result.codeResult.format
-                    });
-                }
-
-                // デバッグ情報を詳細に表示
-                console.log('画像処理情報:', {
-                    イメージサイズ: `${result.inputImageWidth}x${result.inputImageHeight}`,
-                    バーコード検出: result.boxes ? '成功' : '失敗',
-                    処理時間: `${performance.now() - startTime}ms`,
-                    エラー: result.error || 'なし'
-                });
-
-                // エラー検出と再試行ロジック
-                if (result && result.error) {
-                    console.warn('スキャンエラー:', result.error);
-                    if (result.error === 'no code found') {
-                        // 自動再スキャン
-                        setTimeout(() => {
-                            Quagga.start();
-                        }, 100);
-                    }
-                }
-            } else {
-                const statusEl = document.getElementById('scan-status');
-                statusEl.textContent = 'スキャン待機中...';
-                statusEl.className = 'scan-status';
+            // バーコードの数値表示を一時的に無効化
+            /* 
+            // 検出されたパターンを表示
+            if (result.codeResult && result.codeResult.code) {
+                drawingCtx.font = '1.5em Arial';
+                drawingCtx.fillStyle = '#00F';
+                drawingCtx.fillText(result.codeResult.code, 10, 20);
             }
-
-            // デバッグ情報をコンソールに出力
-            if (result && result.codeResult) {
-                console.log('検出結果:', {
-                    code: result.codeResult.code,
-                    format: result.codeResult.format,
-                    confidence: result.codeResult.confidence
-                });
-            }
+            */
         });
 
+        // 再スキャン機能の修正
+        window.restartScan = async function() {
+            try {
+                await controlCamera(APP_CONFIG.CAMERA.STATES.STOPPED);
+                await new Promise(resolve => setTimeout(resolve, 500));
+                await controlCamera(APP_CONFIG.CAMERA.STATES.RUNNING);
+                
+                const resultElement = document.getElementById("result");
+                resultElement.innerHTML = `
+                    <div style="background-color: #FFC107; padding: 10px; border-radius: 4px; margin-top: 10px;">
+                        <p>スキャンを開始します...</p>
+                    </div>
+                `;
+            } catch (error) {
+                utils.handleError(error, '再スキャン中にエラーが発生');
+            }
+        };
+
+        // スキャン確認処理も修正
+        window.confirmScan = function(isConfirmed) {
+            if (isConfirmed) {
+                // OKの場合はカメラを完全停止
+                controlCamera(APP_CONFIG.CAMERA.STATES.STOPPED);
+                document.getElementById("result").innerHTML += `
+                    <div style="background-color: #4CAF50; color: white; padding: 10px; border-radius: 4px; margin-top: 10px;">
+                        <p>スキャンが完了しました。</p>
+                    </div>
+                `;
+            } else {
+                // 再スキャンの場合はカメラを再開
+                controlCamera(APP_CONFIG.CAMERA.STATES.RUNNING);
+                document.getElementById("result").innerHTML = '';
+            }
+        };
+
+        // 初期スキャン開始
+        restartScan();
+
     } catch (err) {
-        console.error("Error:", err);
-        document.getElementById("result").innerHTML = `
-            <div style="color: red; padding: 10px;">
-                カメラの初期化に失敗しました: ${err.name}<br>
-                <small>お使いのブラウザでカメラへのアクセスが許可されているか確認してください。</small>
-            </div>
-        `;
+        utils.handleError(err, "カメラの初期化に失敗しました");
     }
 });
 

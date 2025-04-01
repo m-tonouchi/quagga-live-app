@@ -6,6 +6,7 @@
     <title>バーコードスキャナー</title>
     <link rel="icon" href="favicon.ico" sizes="48x48" type="image/x-icon">
     <link rel="stylesheet" href="css/style.css">
+    <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"></script>
 </head>
 
 <body>
@@ -24,11 +25,13 @@
             </select>
         </div>
         <div id="qrcode" class="qrcode-container"></div>
-        <div id="interactive" class="viewport">
-            <div class="scanning"></div>
-            <div id="scan-status" class="scan-status">スキャン待機中...</div>
+        <div class="scan-container">
+            <div id="interactive" class="viewport">
+                <div class="scanning"></div>
+                <div id="scan-status" class="scan-status">スキャン待機中...</div>
+            </div>
+            <div id="result"></div>
         </div>
-        <div id="result"></div>
     </div>
 
     <!-- QRCodeライブラリを変更 -->
