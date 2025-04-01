@@ -7,6 +7,7 @@
     "start": "npx http-server . -S -C cert.pem -K key.pem --cors -p 3000 -a 0.0.0.0"
   },
   "dependencies": {
-    "http-server": "^14.1.1"
+    "http-server": "^14.1.1",
+    "qrcode": "^1.5.3"
   }
 }

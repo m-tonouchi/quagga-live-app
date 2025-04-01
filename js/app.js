@@ -1,4 +1,17 @@
 document.addEventListener("DOMContentLoaded", async function() {
+    // PCの場合のみQRコードを生成
+    if (window.innerWidth > 480) {
+        const currentUrl = window.location.href;
+        QRCode.toCanvas(document.getElementById('qrcode'), currentUrl, {
+            width: 180,
+            margin: 2,
+            color: {
+                dark: '#000000',
+                light: '#ffffff'
+            }
+        });
+    }
+
     console.log("DOM loaded, initializing Quagga...");
 
     // カメラのサポートチェック
@@ -23,29 +36,18 @@ document.addEventListener("DOMContentLoaded", async function() {
             type: "LiveStream",
             target: document.querySelector("#interactive"),
             constraints: {
-                // iPad向けに解像度を最適化
-                width: { min: 1280, ideal: 1920, max: 2560 },
-                height: { min: 720, ideal: 1080, max: 1440 },
-                aspectRatio: { ideal: 1.777778 },
-                facingMode: { exact: "environment" },
-                // 画質関連の設定を追加
-                advanced: [
-                    {
-                        zoom: 2.0  // デジタルズーム設定（サポートされている場合）
-                    },
-                    {
-                        exposureMode: "manual"  // 露出の手動設定
-                    },
-                    {
-                        focusMode: "continuous"  // 継続的なオートフォーカス
-                    }
-                ]
+                // カメラの制約を緩和
+                width: { min: 320, ideal: 640, max: 1280 },
+                height: { min: 240, ideal: 480, max: 720 },
+                aspectRatio: { min: 1, max: 2 },
+                // facingModeの制約を緩和
+                facingMode: "environment"  // exactを削除
             },
             area: {
-                top: "25%",    // スキャンエリアを少し狭める
-                right: "25%",
-                left: "25%",
-                bottom: "25%"
+                top: "30%",
+                right: "20%",
+                left: "20%",
+                bottom: "30%"
             }
         },
         locate: true,
@@ -58,11 +60,7 @@ document.addEventListener("DOMContentLoaded", async function() {
             debug: {
                 drawBoundingBox: true,
                 showPattern: true
-            },
-            multiple: false,
-            frequency: 5,          // フレームレートを下げて品質を向上
-            minConfidence: 0.15,   // 信頼度の閾値を調整
-            sharpness: 0.8        // シャープネス設定
+            }
         }
     };
 
