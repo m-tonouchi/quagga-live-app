@@ -60,16 +60,19 @@ body {
 /* スキャン中のインジケーター */
 .scanning {
     position: absolute;
-    top: 30%;
-    right: 20%;
-    bottom: 30%;
-    left: 20%;
+    top: 35%;
+    right: 15%;
+    bottom: 35%;
+    left: 15%;
     border: 2px solid rgba(0, 255, 0, 0.5);
-    box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.3);
-    z-index: 2;  /* スキャンエリアを最前面に */
+    box-shadow: 
+        0 0 0 2px rgba(0, 0, 0, 0.3),
+        inset 0 0 20px rgba(0, 255, 0, 0.2);
+    z-index: 2;
     pointer-events: none;
 }
 
+/* スキャンエリアのガイドライン */
 .scanning::before,
 .scanning::after {
     content: '';
@@ -77,9 +80,18 @@ body {
     width: 100%;
     height: 2px;
     background: rgba(0, 255, 0, 0.7);
-    box-shadow: 0 0 2px rgba(0, 0, 0, 0.5);
+    box-shadow: 0 0 4px rgba(0, 255, 0, 0.5);
     animation: scan 2s infinite;
-    z-index: 3;  /* スキャンラインを最前面に */
+    z-index: 3;
+}
+
+/* スキャンエリアの角に目印を追加 */
+.scanning::before {
+    top: 0;
+}
+
+.scanning::after {
+    bottom: 0;
 }
 
 /* スキャンステータスのスタイル */
@@ -158,4 +170,24 @@ body {
     border-radius: 8px;
     box-shadow: 0 2px 4px rgba(0,0,0,0.1);
     max-width: 200px;
+}
+
+.control-panel {
+    margin: 10px 0;
+    text-align: center;
+}
+
+.barcode-select {
+    padding: 8px;
+    font-size: 16px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    background-color: white;
+    min-width: 200px;
+}
+
+.barcode-select:focus {
+    outline: none;
+    border-color: #4CAF50;
+    box-shadow: 0 0 3px rgba(76, 175, 80, 0.5);
 }
